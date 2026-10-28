@@ -1,0 +1,65 @@
+name: Quality gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - name: Publish quality summary
+        if: always()
+        run: |
+          echo "## Quality evidence" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Static syntax gate" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Unit and contract tests" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Immutable commit: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  container-build:
+    needs: code-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: quality-blueprint:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release-decision:
+    if: always()
+    needs: [code-quality, container-build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce required evidence
+        env:
+          CODE_QUALITY: ${{ needs.code-quality.result }}
+          CONTAINER_BUILD: ${{ needs.container-build.result }}
+        run: |
+          echo "Code quality: $CODE_QUALITY"
+          echo "Container build: $CONTAINER_BUILD"
+          test "$CODE_QUALITY" = "success"
+          test "$CONTAINER_BUILD" = "success"

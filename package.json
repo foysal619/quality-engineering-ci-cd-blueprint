@@ -1,0 +1,13 @@
+{
+  "name": "quality-engineering-ci-cd-blueprint",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A small service and reusable GitHub Actions quality-gate blueprint.",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test --test-isolation=none",
+    "check": "node --check src/app.js && node --check src/server.js"
+  },
+  "engines": { "node": ">=20" }
+}

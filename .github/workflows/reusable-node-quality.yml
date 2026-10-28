@@ -1,0 +1,28 @@
+name: Reusable Node quality gate
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js major version
+        type: string
+        default: "22"
+      test-command:
+        description: Command that produces test evidence
+        type: string
+        default: npm test
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: ${{ inputs.test-command }}
